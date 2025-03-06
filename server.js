@@ -6,28 +6,23 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-let ledState = false; // Variabilă care ține minte dacă LED-ul e aprins sau stins
+let latestData = { tensiune: 0, curent: 0, putere: 0 }; // Inițializare variabile
 
-// Endpoint pentru a primi date de la ESP32
+// 🔹 Endpoint pentru a primi date de la ESP32
 app.post("/data", (req, res) => {
     console.log("Date primite de la ESP32:", req.body);
+    latestData = req.body; // Salvăm ultimele date primite
     res.json({ message: "Date primite!" });
 });
 
-// Endpoint pentru controlul LED-ului
-app.get("/led", (req, res) => {
-    const { state } = req.query;
-    if (state === "on") {
-        ledState = true;
-    } else if (state === "off") {
-        ledState = false;
-    }
-    res.json({ led: ledState });
+// 🔹 Endpoint pentru a trimite date către aplicație
+app.get("/data", (req, res) => {
+    res.json(latestData);
 });
 
-// Testare server
+// 🔹 Endpoint de testare
 app.get("/", (req, res) => {
-    res.send("Serverul ESP32 merge!");
+    res.send("Serverul pentru panouri fotovoltaice este activ!");
 });
 
 // Pornire server
