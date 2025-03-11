@@ -7,7 +7,7 @@ app.use(express.json());
 
 // 🔹 Configurează CORS corect
 app.use(cors({
-    origin: "*", // Permite orice sursă (Expo, localhost, etc.)
+    origin: ["http://localhost:8081", "*"], // Permite localhost pentru Expo Web
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"]
 }));
