@@ -5,35 +5,39 @@ const cors = require("cors");
 const app = express();
 app.use(express.json());
 
-// 🔹 Configurează CORS corect
-app.use(cors({
-    origin: ["http://localhost:8081", "*"], // Permite localhost pentru Expo Web
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
-}));
-
-let latestData = { tensiune: 0, curent: 0, putere: 0 }; // Inițializare variabile
-
-// 🔹 Endpoint pentru a primi date de la ESP32
-app.post("/data", (req, res) => {
-    console.log("📡 Date primite de la ESP32:", req.body);
-    latestData = req.body; // Salvăm ultimele date primite
-    res.json({ message: "✅ Date primite!" });
+// CORS configuration
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        return res.status(200).end();
+    }
+    next();
 });
 
-// 🔹 Endpoint pentru a trimite date către aplicație
+let latestData = { voltage: 0, current: 0, power: 0 };
+
+// Endpoint to receive data from ESP32
+app.post("/data", (req, res) => {
+    console.log("Data received from ESP32:", req.body);
+    latestData = req.body; // Store the latest received data
+    res.json({ message: "Data received successfully" });
+});
+
+// Endpoint to send data to the application
 app.get("/data", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*"); // 🔹 Fix pentru CORS
+    res.header("Access-Control-Allow-Origin", "*");
     res.json(latestData);
 });
 
-// 🔹 Endpoint de testare
+// Health check endpoint
 app.get("/", (req, res) => {
-    res.send("✅ Serverul pentru panouri fotovoltaice este activ!");
+    res.send("Server for photovoltaic monitoring is active");
 });
 
-// 🔹 Pornire server
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`✅ Serverul rulează pe portul ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
