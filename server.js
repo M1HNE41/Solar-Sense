@@ -1,72 +1,66 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { Pool } = require("pg");
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
-// Configure CORS settings
-app.use(cors({
-    origin: "*", // Allow all origins (Expo, localhost, etc.)
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
-}));
+// MongoDB Connection
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://mihnea1009:1UKM8WyP2BkJ87oG@solarsensecluster.5utcd.mongodb.net/?retryWrites=true&w=majority&appName=solarsensecluster";
 
-// Connect to PostgreSQL database
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("✅ MongoDB Connected"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
+
+// Define Schema and Model
+const DataSchema = new mongoose.Schema({
+    tensiune: Number,
+    curent: Number,
+    putere: Number,
+    timestamp: { type: Date, default: Date.now }
 });
 
-// Create table if it does not exist
-pool.query(`
-  CREATE TABLE IF NOT EXISTS readings (
-    id SERIAL PRIMARY KEY,
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
-    voltage REAL,
-    current REAL,
-    power REAL
-  );
-`, (err, res) => {
-    if (err) console.error("Error creating table:", err);
-    else console.log("Readings table is ready!");
-});
+const DataModel = mongoose.model("Measurement", DataSchema);
 
-// Endpoint to receive data from ESP32 and save it to PostgreSQL
+// Endpoint to receive data from ESP32
 app.post("/data", async (req, res) => {
     try {
-        const { tensiune, curent } = req.body;
-        const putere = tensiune * curent; // Calculate power
-        await pool.query(
-            "INSERT INTO readings (voltage, current, power) VALUES ($1, $2, $3)",
-            [tensiune, curent, putere]
-        );
-        res.json({ message: "Data received and saved successfully!" });
-    } catch (error) {
-        console.error("Error saving data:", error);
-        res.status(500).json({ error: "Failed to save data" });
+        console.log("📡 Data received from ESP32:", req.body);
+        const newData = new DataModel(req.body);
+        await newData.save();
+        res.json({ message: "✅ Data saved to MongoDB" });
+    } catch (err) {
+        console.error("❌ Error saving data:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-// Endpoint to retrieve the latest data for the application
+// Endpoint to fetch the latest data
 app.get("/data", async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM readings ORDER BY timestamp DESC LIMIT 100");
-        res.json(result.rows);
-    } catch (error) {
-        console.error("Error retrieving data:", error);
-        res.status(500).json({ error: "Failed to retrieve data" });
+        const latestData = await DataModel.findOne().sort({ timestamp: -1 });
+        res.json(latestData || {});
+    } catch (err) {
+        console.error("❌ Error fetching data:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-// Endpoint for server health check
-app.get("/", (req, res) => {
-    res.send("Server for photovoltaic panels is running!");
+// Endpoint to fetch historical data
+app.get("/history", async (req, res) => {
+    try {
+        const dataHistory = await DataModel.find().sort({ timestamp: -1 }).limit(100);
+        res.json(dataHistory);
+    } catch (err) {
+        console.error("❌ Error fetching history:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
-// Start the server
+// Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
 });
