@@ -1,61 +1,39 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { Pool } = require("pg");
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 
-// Connect to PostgreSQL using DATABASE_URL environment variable
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+// 🔹 Configurează CORS corect
+app.use(cors({
+    origin: "*", // Permite orice sursă (Expo, localhost, etc.)
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"]
+}));
+
+let latestData = { tensiune: 0, curent: 0, putere: 0 }; // Inițializare variabile
+
+// 🔹 Endpoint pentru a primi date de la ESP32
+app.post("/data", (req, res) => {
+    console.log("📡 Date primite de la ESP32:", req.body);
+    latestData = req.body; // Salvăm ultimele date primite
+    res.json({ message: "✅ Date primite!" });
 });
 
-// Create the readings table if it does not exist
-pool.query(`
-  CREATE TABLE IF NOT EXISTS readings (
-    id SERIAL PRIMARY KEY,
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
-    voltage REAL,
-    current REAL,
-    power REAL
-  );
-`, (err, res) => {
-  if (err) console.error("Error creating table:", err);
-  else console.log("Readings table is ready!");
+// 🔹 Endpoint pentru a trimite date către aplicație
+app.get("/data", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*"); // 🔹 Fix pentru CORS
+    res.json(latestData);
 });
 
-// Endpoint to receive data from ESP32 and store it in PostgreSQL
-app.post("/data", async (req, res) => {
-  try {
-    const { tensiune, curent } = req.body;
-    const putere = tensiune * curent; // Calculate power
-    await pool.query(
-      "INSERT INTO readings (voltage, current, power) VALUES ($1, $2, $3)",
-      [tensiune, curent, putere]
-    );
-    res.json({ message: "Data successfully saved to the database!" });
-  } catch (error) {
-    console.error("Error saving data:", error);
-    res.status(500).json({ error: "Failed to save data" });
-  }
+// 🔹 Endpoint de testare
+app.get("/", (req, res) => {
+    res.send("✅ Serverul pentru panouri fotovoltaice este activ!");
 });
 
-// Endpoint to fetch data for the application
-app.get("/data", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM readings ORDER BY timestamp DESC LIMIT 100");
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Failed to retrieve data" });
-  }
-});
-
-// Start the server
+// 🔹 Pornire server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`✅ Serverul rulează pe portul ${PORT}`);
 });
