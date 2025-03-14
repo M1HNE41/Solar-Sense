@@ -1,39 +1,55 @@
-require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+app.use(cors()); // Allows requests from the Expo application
 
-// 🔹 Configurează CORS corect
-app.use(cors({
-    origin: "*", // Permite orice sursă (Expo, localhost, etc.)
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
-}));
-
-let latestData = { tensiune: 0, curent: 0, putere: 0 }; // Inițializare variabile
-
-// 🔹 Endpoint pentru a primi date de la ESP32
-app.post("/data", (req, res) => {
-    console.log("📡 Date primite de la ESP32:", req.body);
-    latestData = req.body; // Salvăm ultimele date primite
-    res.json({ message: "✅ Date primite!" });
+// Connect to MongoDB Atlas
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
 });
 
-// 🔹 Endpoint pentru a trimite date către aplicație
-app.get("/data", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*"); // 🔹 Fix pentru CORS
-    res.json(latestData);
+const db = mongoose.connection;
+db.on("error", console.error.bind(console, "MongoDB connection error:"));
+db.once("open", () => console.log("Connected to MongoDB Atlas"));
+
+// Schema for receiving data from ESP32
+const sensorDataSchema = new mongoose.Schema({
+  voltage: Number,
+  current: Number,
+  power: Number,
+  timestamp: { type: Date, default: Date.now },
 });
 
-// 🔹 Endpoint de testare
-app.get("/", (req, res) => {
-    res.send("✅ Serverul pentru panouri fotovoltaice este activ!");
+const SensorData = mongoose.model("SensorData", sensorDataSchema);
+
+// Endpoint to save data from ESP32
+app.post("/api/data", async (req, res) => {
+  const { voltage, current, power } = req.body;
+  try {
+    const newData = new SensorData({ voltage, current, power });
+    await newData.save();
+    res.json(newData);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
 });
 
-// 🔹 Pornire server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`✅ Serverul rulează pe portul ${PORT}`);
+// Endpoint to retrieve historical data (last 100 records)
+app.get("/api/data", async (req, res) => {
+  try {
+    const data = await SensorData.find().sort({ timestamp: -1 }).limit(100);
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
