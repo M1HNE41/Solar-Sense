@@ -55,8 +55,8 @@ app.get("/api/data/historical", async (req, res) => {
   try {
     const historicalData = await SensorData.find().sort({ timestamp: 1 });
     res.status(200).json(historicalData);
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server Error" });
   }
 });
