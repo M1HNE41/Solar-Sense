@@ -4,20 +4,14 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(cors()); // Allows requests from the Expo application
 
-// Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-const db = mongoose.connection;
-db.on("error", console.error.bind(console, "MongoDB connection error:"));
-db.once("open", () => console.log("Connected to MongoDB Atlas"));
-
-// Schema for receiving data from ESP32
 const sensorDataSchema = new mongoose.Schema({
   voltage: Number,
   current: Number,
@@ -25,9 +19,14 @@ const sensorDataSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now },
 });
 
-const SensorData = mongoose.model("SensorData", sensorDataSchema);
+const SensorData = mongoose.model("Data", sensorDataSchema);
 
-// Endpoint to save data from ESP32
+// Root route to check if the server is running
+app.get("/", (req, res) => {
+  res.send("Server is running!");
+});
+
+// Endpoint to receive and store sensor data from ESP32
 app.post("/api/data", async (req, res) => {
   const { voltage, current, power } = req.body;
   try {
@@ -40,18 +39,26 @@ app.post("/api/data", async (req, res) => {
   }
 });
 
-// Endpoint to retrieve historical data (last 100 records)
+// Endpoint to retrieve the most recent 50 data points
 app.get("/api/data", async (req, res) => {
   try {
-    const data = await SensorData.find().sort({ timestamp: -1 }).limit(100);
+    const data = await SensorData.find().sort({ timestamp: -1 }).limit(50);
     res.json(data);
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");
   }
 });
-app.get("/", (req, res) => {
-  res.send("Server is running!");
+
+// Endpoint to retrieve all historical sensor data sorted chronologically
+app.get("/api/data/historical", async (req, res) => {
+  try {
+    const historicalData = await SensorData.find().sort({ timestamp: 1 });
+    res.status(200).json(historicalData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
