@@ -53,6 +53,23 @@ io.on("connection", (socket) => {
 
 // API routes
 app.get("/", (req, res) => res.send("Server is running!"));
+app.post("/api/data", async (req, res) => {
+    console.log("📡 Received from ESP32:", req.body); // Debugging log
+    const { voltage, current, power } = req.body;
+
+    try {
+        const newData = new SensorData({ voltage, current, power });
+        await newData.save();
+        
+        // Send real-time update via WebSocket
+        io.emit("updateData", [newData]); 
+
+        res.json({ message: "Data received", data: newData });
+    } catch (err) {
+        console.error("Error saving data:", err);
+        res.status(500).send("Server Error");
+    }
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
