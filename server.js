@@ -61,5 +61,37 @@ app.get("/api/data/historical", async (req, res) => {
   }
 });
 
+//Endpoint to retrieve sensor data within a specific time range
+app.get("/api/data/range", async (req, res) => {
+  const { start, end } = req.query;
+
+  if (!start || !end) {
+    return res.status(400).json({ message: "Missing start or end date parameter" });
+  }
+
+  try {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    // Validate if the dates are valid
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({ message: "Invalid date format" });
+    }
+
+    // Fetch data in the date range
+    const rangeData = await SensorData.find({
+      timestamp: {
+        $gte: startDate, // Greater than or equal to start date
+        $lte: endDate,   // Less than or equal to end date
+      },
+    }).sort({ timestamp: 1 });
+
+    res.status(200).json(rangeData);
+  } catch (err) {
+    console.error("Error fetching data by range:", err);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
