@@ -33,23 +33,35 @@ const io = new Server(server, {
 
 // When a client connects
 io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
+    console.log("Client connected:", socket.id);
 
-  // Send the latest data every 2 seconds
-  const interval = setInterval(async () => {
-    try {
-      const latestData = await SensorData.find().sort({ timestamp: -1 }).limit(50);
-      socket.emit("updateData", latestData);
-    } catch (error) {
-      console.error("Error fetching real-time data:", error);
-    }
-  }, 2000);
+    // Send initial data to the client immediately after connection
+    SensorData.find().sort({ timestamp: -1 }).limit(50)
+        .then((latestData) => {
+            console.log("Sending initial data to client...");
+            socket.emit("updateData", latestData);
+        })
+        .catch((err) => console.error("Error fetching initial data:", err));
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-    clearInterval(interval);
-  });
+    // Send periodic updates every 2 seconds
+    const interval = setInterval(async () => {
+        try {
+            const latestData = await SensorData.find().sort({ timestamp: -1 }).limit(50);
+            console.log("Sending new data to client...");
+            socket.emit("updateData", latestData);
+        } catch (error) {
+            console.error("Error fetching real-time data:", error);
+        }
+    }, 2000);
+
+    // Handle client disconnection
+    socket.on("disconnect", () => {
+        console.log("Client disconnected:", socket.id);
+        clearInterval(interval);
+    });
 });
+
+
 
 // API routes
 app.get("/", (req, res) => res.send("Server is running!"));
