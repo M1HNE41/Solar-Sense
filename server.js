@@ -19,7 +19,7 @@ const sensorDataSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now },
 });
 
-const SensorData = mongoose.model("Data", sensorDataSchema);
+const SensorData = mongoose.model("sensordatas", sensorDataSchema, "sensordatas");
 
 // Root route to check if the server is running
 app.get("/", (req, res) => {
