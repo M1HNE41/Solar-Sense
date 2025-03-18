@@ -1,6 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const { Server } = require("socket.io");
+const http = require("http");
 require("dotenv").config();
 
 const app = express();
@@ -21,77 +23,36 @@ const sensorDataSchema = new mongoose.Schema({
 
 const SensorData = mongoose.model("sensordatas", sensorDataSchema, "sensordatas");
 
-// Root route to check if the server is running
-app.get("/", (req, res) => {
-  res.send("Server is running!");
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
 });
 
-// Endpoint to receive and store sensor data from ESP32
-app.post("/api/data", async (req, res) => {
-  const { voltage, current, power } = req.body;
-  try {
-    const newData = new SensorData({ voltage, current, power });
-    await newData.save();
-    res.json(newData);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
-  }
-});
+// When a client connects
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
 
-// Endpoint to retrieve the most recent 50 data points
-app.get("/api/data", async (req, res) => {
-  try {
-    const data = await SensorData.find().sort({ timestamp: -1 }).limit(50);
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
-  }
-});
-
-// Endpoint to retrieve all historical sensor data sorted chronologically
-app.get("/api/data/historical", async (req, res) => {
-  try {
-    const historicalData = await SensorData.find().sort({ timestamp: 1 });
-    res.status(200).json(historicalData);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server Error" });
-  }
-});
-
-//Endpoint to retrieve sensor data within a specific time range
-app.get("/api/data/range", async (req, res) => {
-  const { start, end } = req.query;
-
-  if (!start || !end) {
-    return res.status(400).json({ message: "Missing start or end date parameter" });
-  }
-
-  try {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-
-    // Validate if the dates are valid
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      return res.status(400).json({ message: "Invalid date format" });
+  // Send the latest data every 2 seconds
+  const interval = setInterval(async () => {
+    try {
+      const latestData = await SensorData.find().sort({ timestamp: -1 }).limit(50);
+      socket.emit("updateData", latestData);
+    } catch (error) {
+      console.error("Error fetching real-time data:", error);
     }
+  }, 2000);
 
-    // Fetch data in the date range
-    const rangeData = await SensorData.find({
-      timestamp: {
-        $gte: startDate, // Greater than or equal to start date
-        $lte: endDate,   // Less than or equal to end date
-      },
-    }).sort({ timestamp: 1 });
-
-    res.status(200).json(rangeData);
-  } catch (err) {
-    console.error("Error fetching data by range:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+    clearInterval(interval);
+  });
 });
+
+// API routes
+app.get("/", (req, res) => res.send("Server is running!"));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
