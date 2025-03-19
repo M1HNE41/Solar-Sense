@@ -83,5 +83,26 @@ app.post("/api/data", async (req, res) => {
     }
 });
 
+// Endpoint to retrieve historical data for a specific time range
+app.get("/api/data/range", async (req, res) => {
+    const { start, end } = req.query;
+
+    if (!start || !end) {
+        return res.status(400).json({ message: "Start and end timestamps are required." });
+    }
+
+    try {
+        const historicalData = await SensorData.find({
+            timestamp: { $gte: new Date(start), $lte: new Date(end) }
+        }).sort({ timestamp: 1 });
+
+        res.status(200).json(historicalData);
+    } catch (error) {
+        console.error("Error fetching historical data:", error);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
