@@ -103,6 +103,18 @@ app.get("/api/data/range", async (req, res) => {
     }
 });
 
+// GET /api/data - return latest 50 data points
+app.get("/api/data", async (req, res) => {
+  try {
+    const data = await SensorData.find().sort({ timestamp: -1 }).limit(50);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Error fetching historical data:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
