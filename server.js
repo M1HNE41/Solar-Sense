@@ -18,6 +18,7 @@ const sensorDataSchema = new mongoose.Schema({
   voltage: Number,
   current: Number,
   power: Number,
+  espId: String,
   timestamp: { type: Date, default: Date.now },
 });
 
@@ -30,13 +31,11 @@ const io = new Server(server, {
   },
 });
 
-// Track last ESP update
 let lastEspUpdateTime = Date.now();
 
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  // Send initial data on connect
   SensorData.find().sort({ timestamp: -1 }).limit(50)
     .then((latestData) => {
       console.log("Sending initial data to client...");
@@ -44,19 +43,18 @@ io.on("connection", (socket) => {
     })
     .catch((err) => console.error("Error fetching initial data:", err));
 
-  // Periodic updates only if ESP is active
   const interval = setInterval(async () => {
     const now = Date.now();
-    const isEspActive = now - lastEspUpdateTime < 10000; // 10s
+    const isEspActive = now - lastEspUpdateTime < 10000;
 
     if (!isEspActive) {
-      console.log("⚠️ ESP inactive, skipping data push");
+      console.log("ESP inactive, skipping data push");
       return;
     }
 
     try {
       const latestData = await SensorData.find().sort({ timestamp: -1 }).limit(50);
-      console.log("📤 Sending new data to client...");
+      console.log("Sending new data to client...");
       socket.emit("updateData", latestData);
     } catch (error) {
       console.error("Error fetching real-time data:", error);
@@ -72,19 +70,14 @@ io.on("connection", (socket) => {
 app.get("/", (req, res) => res.send("Server is running!"));
 
 app.post("/api/data", async (req, res) => {
-  console.log("📡 Received from ESP32:", req.body);
-  const { voltage, current, power } = req.body;
+  const { voltage, current, power, espId } = req.body;
+  console.log(`📡 Received from ESP [${espId || 'no id'}]:`, { voltage, current, power });
 
   try {
-    const newData = new SensorData({ voltage, current, power });
+    const newData = new SensorData({ voltage, current, power, espId });
     await newData.save();
-
-    // Update last ESP time
     lastEspUpdateTime = Date.now();
-
-    // Immediate push
     io.emit("updateData", [newData]);
-
     res.json({ message: "Data received", data: newData });
   } catch (err) {
     console.error("Error saving data:", err);
