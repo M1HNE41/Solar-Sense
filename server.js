@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const http = require("http");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -31,8 +32,7 @@ const io = new Server(server, {
 
 let lastEspUpdateTime = Date.now();
 
-// OTA command store (in-memory)
-const otaCommands = {}; // { "espId": "firmwareUrl" }
+const otaCommands = {}; // Stores OTA commands per espId
 
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
@@ -67,7 +67,7 @@ io.on("connection", (socket) => {
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
-// Endpoint for ESP to post data and receive OTA command if available
+// Endpoint for ESP to post sensor data and receive OTA command if available
 app.post("/api/data", async (req, res) => {
   const { voltage, current, power, espId } = req.body;
 
@@ -77,7 +77,6 @@ app.post("/api/data", async (req, res) => {
     lastEspUpdateTime = Date.now();
     io.emit("updateData", [newData]);
 
-    // Check if there is a pending OTA command for this ESP
     if (espId && otaCommands[espId]) {
       const otaUrl = otaCommands[espId];
       delete otaCommands[espId];
@@ -91,7 +90,7 @@ app.post("/api/data", async (req, res) => {
   }
 });
 
-// Endpoint to prepare an OTA command for a specific ESP
+// Endpoint to prepare an OTA command for an ESP device
 app.post("/api/prepare-ota", (req, res) => {
   const { espId, firmwareUrl } = req.body;
 
@@ -104,7 +103,7 @@ app.post("/api/prepare-ota", (req, res) => {
   res.json({ message: `OTA prepared for ${espId}` });
 });
 
-// Endpoint to fetch historical data in a given time range
+// Endpoint to fetch data within a specific time range
 app.get("/api/data/range", async (req, res) => {
   const { start, end } = req.query;
 
@@ -124,7 +123,7 @@ app.get("/api/data/range", async (req, res) => {
   }
 });
 
-// Endpoint to fetch latest 50 entries
+// Endpoint to fetch latest 50 sensor data entries
 app.get("/api/data", async (req, res) => {
   try {
     const data = await SensorData.find().sort({ timestamp: -1 }).limit(50);
@@ -133,6 +132,12 @@ app.get("/api/data", async (req, res) => {
     console.error("Error fetching latest data:", error);
     res.status(500).json({ message: "Server Error" });
   }
+});
+
+// Endpoint to serve firmware binary for OTA
+app.get("/firmware/latest.bin", (req, res) => {
+  const filePath = path.join(__dirname, "firmware", "latest.bin");
+  res.sendFile(filePath);
 });
 
 const PORT = process.env.PORT || 5000;
