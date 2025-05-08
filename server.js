@@ -77,7 +77,7 @@ app.post("/api/data", async (req, res) => {
     const recentData = await SensorData.aggregate([
       {
         $match: {
-          timestamp: { $gte: new Date(Date.now() - 15000) } // 15 secunde
+          timestamp: { $gte: new Date(Date.now() - 20000) } // 2 seconds
         }
       },
       {
@@ -100,7 +100,7 @@ app.post("/api/data", async (req, res) => {
 
     if (otaCommands[espId]) {
       const { cmd, createdAt } = otaCommands[espId];
-      const expired = Date.now() - createdAt > 15000; // 15 secunde
+      const expired = Date.now() - createdAt > 15000; // expire reset command after 15 seconds
 
       if (!expired) {
         delete otaCommands[espId];
