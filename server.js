@@ -32,7 +32,8 @@ const io = new Server(server, {
 
 let lastEspUpdateTime = Date.now();
 
-const otaCommands = {}; // Stores OTA commands per espId
+// Stores OTA or reset commands per espId
+const otaCommands = {};
 
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
@@ -67,7 +68,7 @@ io.on("connection", (socket) => {
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
-// Endpoint for ESP to post sensor data and receive OTA command if available
+// Endpoint for ESP to post sensor data and receive OTA or reset command if available
 app.post("/api/data", async (req, res) => {
   const { voltage, current, power, espId } = req.body;
 
@@ -78,9 +79,14 @@ app.post("/api/data", async (req, res) => {
     io.emit("updateData", [newData]);
 
     if (espId && otaCommands[espId]) {
-      const otaUrl = otaCommands[espId];
+      const command = otaCommands[espId];
       delete otaCommands[espId];
-      return res.json({ command: "ota", url: otaUrl });
+
+      if (command === "reset") {
+        return res.json({ command: "reset" });
+      }
+
+      return res.json({ command: "ota", url: command });
     }
 
     res.json({ message: "Data received", data: newData });
@@ -101,6 +107,19 @@ app.post("/api/prepare-ota", (req, res) => {
   otaCommands[espId] = firmwareUrl;
   console.log(`OTA command set for ${espId}: ${firmwareUrl}`);
   res.json({ message: `OTA prepared for ${espId}` });
+});
+
+// Endpoint to send reset command to a specific ESP
+app.post("/api/reset-device", (req, res) => {
+  const { espId } = req.body;
+
+  if (!espId) {
+    return res.status(400).json({ error: "espId is required" });
+  }
+
+  otaCommands[espId] = "reset";
+  console.log(`Reset command set for ${espId}`);
+  res.json({ message: `Reset command sent to ${espId}` });
 });
 
 // Endpoint to fetch data within a specific time range
