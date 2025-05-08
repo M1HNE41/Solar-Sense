@@ -99,9 +99,15 @@ app.post("/api/data", async (req, res) => {
 
 
     if (otaCommands[espId]) {
-      const command = otaCommands[espId];
-      delete otaCommands[espId];
-      return res.json({ command });
+      const { cmd, createdAt } = otaCommands[espId];
+      const expired = Date.now() - createdAt > 15000; // 15 secunde
+
+      if (!expired) {
+        delete otaCommands[espId];
+        return res.json({ command: cmd });
+      }
+    
+      delete otaCommands[espId]; // cleanup dacă a expirat
     }
 
     res.json({ message: "Data received", data: newData });
@@ -126,7 +132,10 @@ app.post("/api/reset-device", (req, res) => {
   if (!rawId) return res.status(400).json({ error: "espId is required" });
 
   const espId = rawId.toUpperCase();
-  otaCommands[espId] = "reset";
+  otaCommands[espId] = {
+  cmd: 'reset',
+  createdAt: Date.now()
+};
   res.json({ message: `Reset command sent to ${espId}` });
 });
 
