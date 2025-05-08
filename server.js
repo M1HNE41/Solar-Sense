@@ -31,9 +31,7 @@ const io = new Server(server, {
 });
 
 let lastEspUpdateTime = Date.now();
-
-// Stores OTA or reset commands per espId
-const otaCommands = {};
+const otaCommands = {}; // Stores OTA or reset commands per espId
 
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
@@ -47,10 +45,7 @@ io.on("connection", (socket) => {
   const interval = setInterval(async () => {
     const now = Date.now();
     const isEspActive = now - lastEspUpdateTime < 10000;
-
-    if (!isEspActive) {
-      return;
-    }
+    if (!isEspActive) return;
 
     try {
       const latestData = await SensorData.find().sort({ timestamp: -1 }).limit(50);
@@ -70,12 +65,10 @@ app.get("/", (req, res) => res.send("Server is running!"));
 
 // Endpoint for ESP to post sensor data and receive OTA or reset command if available
 app.post("/api/data", async (req, res) => {
-  let { voltage, current, power, espId } = req.body;
-  const espId = esp_id?.toUpperCase(); // normalize here
-  
-  if (!espId) return res.status(400).json({ error: "Missing espId" });
+  const { voltage, current, power, esp_id } = req.body;
+  const espId = (esp_id || "").toUpperCase();
 
-  espId = espId.toUpperCase(); // normalize before checking commands
+  if (!espId) return res.status(400).json({ error: "Missing espId" });
 
   try {
     const newData = new SensorData({ voltage, current, power, espId });
@@ -96,7 +89,6 @@ app.post("/api/data", async (req, res) => {
   }
 });
 
-
 // Endpoint to prepare an OTA command for an ESP device
 app.post("/api/prepare-ota", (req, res) => {
   const { espId, firmwareUrl } = req.body;
@@ -105,8 +97,8 @@ app.post("/api/prepare-ota", (req, res) => {
     return res.status(400).json({ error: "espId and firmwareUrl required" });
   }
 
-  otaCommands[espId] = firmwareUrl;
-  console.log(`OTA command set for ${espId}: ${firmwareUrl}`);
+  otaCommands[espId.toUpperCase()] = firmwareUrl;
+  console.log(`OTA command set for ${espId.toUpperCase()}: ${firmwareUrl}`);
   res.json({ message: `OTA prepared for ${espId}` });
 });
 
@@ -115,9 +107,8 @@ app.post("/api/reset-device", (req, res) => {
   const rawId = req.body.espId;
   if (!rawId) return res.status(400).json({ error: "espId is required" });
 
-  const espId = rawId.toUpperCase(); // normalize key
+  const espId = rawId.toUpperCase();
   otaCommands[espId] = "reset";
-
   console.log(`Reset command set for ${espId}`);
   res.json({ message: `Reset command sent to ${espId}` });
 });
