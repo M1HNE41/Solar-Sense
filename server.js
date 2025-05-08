@@ -79,6 +79,7 @@ app.post("/api/data", async (req, res) => {
     if (otaCommands[espId]) {
       const command = otaCommands[espId];
       console.log(`➡️  Responding to ${espId} with command: ${command}`);
+      delete otaCommands[espId];
       return res.json({ command });
     }
 
