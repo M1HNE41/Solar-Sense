@@ -70,7 +70,11 @@ app.get("/", (req, res) => res.send("Server is running!"));
 
 // Endpoint for ESP to post sensor data and receive OTA or reset command if available
 app.post("/api/data", async (req, res) => {
-  const { voltage, current, power, espId } = req.body;
+  let { voltage, current, power, espId } = req.body;
+
+  if (!espId) return res.status(400).json({ error: "Missing espId" });
+
+  espId = espId.toUpperCase(); // normalize before checking commands
 
   try {
     const newData = new SensorData({ voltage, current, power, espId });
@@ -78,15 +82,10 @@ app.post("/api/data", async (req, res) => {
     lastEspUpdateTime = Date.now();
     io.emit("updateData", [newData]);
 
-    if (espId && otaCommands[espId]) {
+    if (otaCommands[espId]) {
       const command = otaCommands[espId];
-      //delete otaCommands[espId];
-
-      if (command === "reset") {
-        return res.json({ command: "reset" });
-      }
-
-      return res.json({ command: "ota", url: command });
+      console.log(`➡️  Responding to ${espId} with command: ${command}`);
+      return res.json({ command });
     }
 
     res.json({ message: "Data received", data: newData });
@@ -95,6 +94,7 @@ app.post("/api/data", async (req, res) => {
     res.status(500).send("Server Error");
   }
 });
+
 
 // Endpoint to prepare an OTA command for an ESP device
 app.post("/api/prepare-ota", (req, res) => {
