@@ -71,7 +71,8 @@ app.get("/", (req, res) => res.send("Server is running!"));
 // Endpoint for ESP to post sensor data and receive OTA or reset command if available
 app.post("/api/data", async (req, res) => {
   let { voltage, current, power, espId } = req.body;
-
+  const espId = esp_id?.toUpperCase(); // normalize here
+  
   if (!espId) return res.status(400).json({ error: "Missing espId" });
 
   espId = espId.toUpperCase(); // normalize before checking commands
