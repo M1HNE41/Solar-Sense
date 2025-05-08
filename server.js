@@ -80,7 +80,7 @@ app.post("/api/data", async (req, res) => {
 
     if (espId && otaCommands[espId]) {
       const command = otaCommands[espId];
-      delete otaCommands[espId];
+      //delete otaCommands[espId];
 
       if (command === "reset") {
         return res.json({ command: "reset" });
