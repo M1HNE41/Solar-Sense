@@ -74,7 +74,12 @@ app.post("/api/data", async (req, res) => {
     const newData = new SensorData({ voltage, current, power, espId });
     await newData.save();
     lastEspUpdateTime = Date.now();
-    io.emit("updateData", [newData]);
+    const recentData = await SensorData.find({
+      timestamp: { $gte: new Date(Date.now() - 10000) } // latest 10s
+    }).sort({ timestamp: -1 });
+
+    io.emit("updateData", recentData);
+
 
     if (otaCommands[espId]) {
       const command = otaCommands[espId];
