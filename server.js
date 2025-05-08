@@ -111,13 +111,12 @@ app.post("/api/prepare-ota", (req, res) => {
 
 // Endpoint to send reset command to a specific ESP
 app.post("/api/reset-device", (req, res) => {
-  const { espId } = req.body;
+  const rawId = req.body.espId;
+  if (!rawId) return res.status(400).json({ error: "espId is required" });
 
-  if (!espId) {
-    return res.status(400).json({ error: "espId is required" });
-  }
-
+  const espId = rawId.toUpperCase(); // normalize key
   otaCommands[espId] = "reset";
+
   console.log(`Reset command set for ${espId}`);
   res.json({ message: `Reset command sent to ${espId}` });
 });
