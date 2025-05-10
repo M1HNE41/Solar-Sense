@@ -188,7 +188,7 @@ app.get("/api/data/range", async (req, res) => {
       {
         $group: {
           _id: groupBy,
-          totalEnergy: { $sum: "$power" },
+          totalEnergy: { $sum: { $multiply: ["$power", 5 / 3600] } },
           timestamp: { $min: "$timestamp" }
         }
       },
