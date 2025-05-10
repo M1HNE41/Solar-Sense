@@ -169,18 +169,26 @@ app.get("/api/data/range", async (req, res) => {
     matchStage.espId = espId.toUpperCase();
   }
 
-  const groupBy = (mode === 'weekly' || mode === 'monthly')
-    ? {
-        year: { $year: '$timestamp' },
-        month: { $month: '$timestamp' },
-        day: { $dayOfMonth: '$timestamp' }
-      }
-    : {
-        year: { $year: '$timestamp' },
-        month: { $month: '$timestamp' },
-        day: { $dayOfMonth: '$timestamp' },
-        hour: { $hour: '$timestamp' }
-      };
+  const groupBy = (mode === 'hour')
+  ? {
+      year: { $year: '$timestamp' },
+      month: { $month: '$timestamp' },
+      day: { $dayOfMonth: '$timestamp' },
+      hour: { $hour: '$timestamp' },
+      minute: { $minute: '$timestamp' }  // 👈 adaugă grupare pe minut
+    }
+  : (mode === 'daily')
+  ? {
+      year: { $year: '$timestamp' },
+      month: { $month: '$timestamp' },
+      day: { $dayOfMonth: '$timestamp' },
+      hour: { $hour: '$timestamp' }
+    }
+  : {
+      year: { $year: '$timestamp' },
+      month: { $month: '$timestamp' },
+      day: { $dayOfMonth: '$timestamp' }
+    };
 
   try {
     const result = await SensorData.aggregate([
