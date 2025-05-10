@@ -107,7 +107,7 @@ app.post("/api/data", async (req, res) => {
         return res.json({ command: cmd });
       }
     
-      delete otaCommands[espId]; // cleanup dacă a expirat
+      delete otaCommands[espId];
     }
 
     res.json({ message: "Data received", data: newData });
@@ -175,7 +175,7 @@ app.get("/api/data/range", async (req, res) => {
       month: { $month: '$timestamp' },
       day: { $dayOfMonth: '$timestamp' },
       hour: { $hour: '$timestamp' },
-      minute: { $minute: '$timestamp' }  // 👈 adaugă grupare pe minut
+      minute: { $minute: '$timestamp' } 
     }
   : (mode === 'daily')
   ? {
@@ -196,7 +196,7 @@ app.get("/api/data/range", async (req, res) => {
       {
         $group: {
           _id: groupBy,
-          totalEnergy: { $sum: { $multiply: ["$power", 5 / 3600] } },
+          totalEnergy: { $sum: { $multiply: ["$power", 10 / 3600] } },
           timestamp: { $min: "$timestamp" }
         }
       },
